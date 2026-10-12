@@ -14,6 +14,7 @@ Docker, GitHub Actions, and Google Cloud.
 - Validate file extensions and reject invalid CSV data.
 - Manage database schema changes with Alembic migrations.
 - Run automated tests and Docker builds in GitHub Actions.
+- Reject CSV files larger than 5 MiB before analysis.
 
 The API stores analysis results, not the original uploaded files.
 
@@ -75,6 +76,7 @@ The database generates `id` and `created_at`, so their values vary.
 - `404` — analysis not found.
 - `422` — request validation error, such as a missing upload or a non-integer ID.
 - `503` — database operation failed.
+- `413` — uploaded CSV exceeds the 5 MiB size limit.
 
 ## Application structure
 
@@ -257,7 +259,7 @@ checks the analysis response, and retrieves the saved result by ID.
 The test API is available at `http://127.0.0.1:8082`.
 Its PostgreSQL instance is separate from the normal development database.
 
-The current suite contains 12 tests: 11 service/API tests and one integration test.
+The current suite contains 14 tests: 13 service/API tests and one integration test.
 
 Remove the integration environment and its data after testing:
 
@@ -338,7 +340,9 @@ Stopping the proxy does not stop the cloud service or database.
 This is a learning and portfolio project, not a production-ready document platform.
 
 - CSV is currently the only supported input format.
-- Uploaded content is read into memory; large-file processing is not implemented.
+- CSV analysis is limited to files of at most 5 MiB. This does not limit the
+  entire HTTP request before upload parsing or guarantee a maximum DataFrame
+  memory footprint.
 - There is no application-level user ownership or per-user isolation of analyses.
 - Cloud access is restricted through Google Cloud IAM.
 - Cloud deployment is manual.

@@ -118,3 +118,46 @@ def test_get_analysis_database_unavailable(monkeypatch):
     assert response.json() == {
         "detail": "Could not retrieve the analysis. Please try again later."
     }
+
+def test_upload_accepts_csv_at_size_limit(monkeypatch):
+    content = b"name,amount\nAlice,10\n"
+
+    monkeypatch.setattr(
+        "app.api.routes.files.MAX_CSV_SIZE_BYTES",
+        len(content),
+    )
+
+    response = client.post(
+        "/files/analyze",
+        files={"file": ("sample.csv", content, "text/csv")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["row_count"] == 1
+
+
+def test_upload_rejects_csv_above_size_limit(monkeypatch):
+    content = b"name,amount\nAlice,10\n"
+
+    monkeypatch.setattr(
+        "app.api.routes.files.MAX_CSV_SIZE_BYTES",
+        len(content) - 1,
+    )
+
+    def unexpected_analysis(content):
+        raise AssertionError("Oversized CSV must not be analyzed.")
+
+    monkeypatch.setattr(
+        "app.api.routes.files.analyze_csv_content",
+        unexpected_analysis,
+    )
+
+    response = client.post(
+        "/files/analyze",
+        files={"file": ("sample.csv", content, "text/csv")},
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {
+        "detail": "CSV file exceeds the size limit."
+    }

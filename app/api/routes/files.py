@@ -7,6 +7,8 @@ from app.repositories.file_analysis_repository import get_analysis_by_id, save_a
 from app.schemas.file_analysis import FileAnalysisResponse
 from app.services.csv_service import InvalidCsvError, analyze_csv_content
 
+MAX_CSV_SIZE_BYTES = 5 * 1024 * 1024
+
 router = APIRouter(prefix="/files", tags=["Files"])
 
 
@@ -39,7 +41,13 @@ def analyze_csv(
             detail="Please upload a CSV file.",
         )
 
-    content = file.file.read()
+    content = file.file.read(MAX_CSV_SIZE_BYTES + 1)
+
+    if len(content) > MAX_CSV_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="CSV file exceeds the size limit.",
+        )
 
     try:
         analysis = analyze_csv_content(content)
