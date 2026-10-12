@@ -30,3 +30,29 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t document-processing-api:ci .
+
+      - name: Start integration environment
+        run: >
+          docker compose
+          -p document-processing-test
+          -f compose.test.yaml
+          up --build -d --wait --wait-timeout 120
+
+      - name: Run integration tests
+        run: python -m pytest integration_tests -v
+
+      - name: Show container logs on failure
+        if: failure()
+        run: >
+          docker compose
+          -p document-processing-test
+          -f compose.test.yaml
+          logs --no-color
+
+      - name: Clean up integration environment
+        if: always()
+        run: >
+          docker compose
+          -p document-processing-test
+          -f compose.test.yaml
+          down -v
