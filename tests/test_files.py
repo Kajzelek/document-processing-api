@@ -1,8 +1,55 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 
 client = TestClient(app)
+
+
+@pytest.mark.parametrize("prefix", ["a", "ą"])
+def test_upload_accepts_filename_at_length_limit(prefix):
+    filename = prefix * 251 + ".csv"
+    response = client.post(
+        "/files/analyze",
+        files={"file": (filename, b"name\nAlice\n", "text/csv")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["filename"] == filename
+
+
+def test_upload_rejects_filename_above_length_limit(monkeypatch):
+    def unexpected_save(*args, **kwargs):
+        raise AssertionError("Invalid filename must not reach the repository.")
+
+    monkeypatch.setattr("app.api.routes.files.save_analysis", unexpected_save)
+    response = client.post(
+        "/files/analyze",
+        files={"file": ("a" * 252 + ".csv", b"name\nAlice\n", "text/csv")},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Filename must not exceed 255 characters."}
+
+
+@pytest.mark.parametrize("analysis_id", [0, -1, 2_147_483_648, 10**40])
+def test_get_analysis_rejects_out_of_range_id(analysis_id, monkeypatch):
+    def unexpected_query(*args, **kwargs):
+        raise AssertionError("Invalid ID must not reach the repository.")
+
+    monkeypatch.setattr("app.api.routes.files.get_analysis_by_id", unexpected_query)
+    response = client.get(f"/files/analyses/{analysis_id}")
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["path", "analysis_id"]
+
+
+@pytest.mark.parametrize("analysis_id", [1, 2_147_483_647])
+def test_get_analysis_accepts_id_range_boundaries(analysis_id):
+    response = client.get(f"/files/analyses/{analysis_id}")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Analysis not found."}
 
 
 def test_upload_valid_csv():

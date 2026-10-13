@@ -72,9 +72,9 @@ The database generates `id` and `created_at`, so their values vary.
 ### Response codes
 
 - `200` — successful analysis or retrieval.
-- `400` — unsupported file extension or invalid CSV content.
+- `400` — unsupported file extension, filename longer than 255 characters, or invalid CSV content.
 - `404` — analysis not found.
-- `422` — request validation error, such as a missing upload or a non-integer ID.
+- `422` — request validation error, such as a missing upload or an ID outside the integer range 1–2147483647.
 - `503` — database operation failed.
 - `413` — uploaded CSV exceeds the 5 MiB size limit.
 
@@ -259,7 +259,7 @@ checks the analysis response, and retrieves the saved result by ID.
 The test API is available at `http://127.0.0.1:8082`.
 Its PostgreSQL instance is separate from the normal development database.
 
-The current suite contains 14 tests: 13 service/API tests and one integration test.
+The current suite contains 23 tests: 22 service/API tests and one integration test.
 
 Remove the integration environment and its data after testing:
 

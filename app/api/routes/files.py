@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, HTTPException, Path, UploadFile
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -13,7 +15,10 @@ router = APIRouter(prefix="/files", tags=["Files"])
 
 
 @router.get("/analyses/{analysis_id}", response_model=FileAnalysisResponse)
-def get_analysis(analysis_id: int, session: Session = Depends(get_db)):
+def get_analysis(
+    analysis_id: Annotated[int, Path(ge=1, le=2_147_483_647)],
+    session: Session = Depends(get_db),
+):
     try:
         record = get_analysis_by_id(session, analysis_id)
     except SQLAlchemyError as exc:
@@ -39,6 +44,12 @@ def analyze_csv(
         raise HTTPException(
             status_code=400,
             detail="Please upload a CSV file.",
+        )
+
+    if len(filename) > 255:
+        raise HTTPException(
+            status_code=400,
+            detail="Filename must not exceed 255 characters.",
         )
 
     content = file.file.read(MAX_CSV_SIZE_BYTES + 1)
