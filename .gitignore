@@ -19,3 +19,5 @@ venv/
 # Coverage
 .coverage
 htmlcov/
+
+gha-creds-*.json

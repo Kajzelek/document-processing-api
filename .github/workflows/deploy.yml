@@ -1,0 +1,77 @@
+name: Deploy to GCP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: document-api-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      PROJECT_ID: document-api-pc-2026
+      REGION: europe-west1
+      IMAGE: europe-west1-docker.pkg.dev/document-api-pc-2026/document-api/api:${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build --platform linux/amd64 -t "$IMAGE" .
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: document-api-pc-2026
+          workload_identity_provider: projects/83796562787/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: document-api-deployer@document-api-pc-2026.iam.gserviceaccount.com
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker authentication
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+
+      - name: Push image
+        run: docker push "$IMAGE"
+
+      - name: Update migration job image
+        run: |
+          gcloud run jobs update document-api-migrate \
+            --image="$IMAGE" \
+            --region="$REGION" \
+            --project="$PROJECT_ID" \
+            --quiet
+
+      - name: Run database migrations
+        run: |
+          gcloud run jobs execute document-api-migrate \
+            --region="$REGION" \
+            --project="$PROJECT_ID" \
+            --wait \
+            --quiet
+
+      - name: Deploy API
+        run: |
+          gcloud run services update document-api \
+            --image="$IMAGE" \
+            --region="$REGION" \
+            --project="$PROJECT_ID" \
+            --quiet
