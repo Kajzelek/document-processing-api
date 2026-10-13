@@ -280,7 +280,24 @@ GitHub Actions:
 7. Prints container logs on failure.
 8. Cleans up the integration environment.
 
-Cloud deployment is currently manual. Continuous deployment is not yet configured.
+## Deployment workflow
+
+Deployment is automated through the `Deploy to GCP` GitHub Actions workflow,
+started manually with `Run workflow` on the `main` branch.
+
+The workflow:
+
+1. Runs the existing CI checks.
+2. Builds and pushes an image tagged with the commit SHA and workflow run identifiers.
+3. Updates and executes the Cloud Run migration job.
+4. Updates the API only after migrations succeed.
+
+GitHub authenticates to Google Cloud through Workload Identity Federation,
+without a stored service account key. Access is restricted to this repository
+and the `main` branch.
+
+Deployments run sequentially to avoid concurrent migration executions
+from this workflow.
 
 ## Google Cloud deployment
 
@@ -345,7 +362,8 @@ This is a learning and portfolio project, not a production-ready document platfo
   memory footprint.
 - There is no application-level user ownership or per-user isolation of analyses.
 - Cloud access is restricted through Google Cloud IAM.
-- Cloud deployment is manual.
+- Deployment is automated but requires manual initiation in GitHub Actions.
+- Post-deployment HTTP checks are currently performed manually.
 - The cloud environment is a temporary demo using trial credits.
 
 Cloud SQL continues to consume resources while running, even when the API
